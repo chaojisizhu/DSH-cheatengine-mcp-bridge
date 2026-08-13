@@ -97,6 +97,105 @@ pip install mcp pywin32
 
 ---
 
+## DeepSeek Harness Plugin (DSH)
+
+This repository is also a **DeepSeek Harness plugin bundle**: install it into any DSH profile and every Cheat Engine capability becomes a native DSH tool under the namespace `mcp__cheatengine__<tool>` (e.g. `mcp__cheatengine__read_memory`, `mcp__cheatengine__aob_scan_unique`, `mcp__cheatengine__open_process`). The bundle wires the bundled Python MCP server to DSH's built-in MCP client bridge (`@deepseek-ai/dsh-mcp-client`) — no IDE MCP configuration needed.
+
+### Prerequisites
+
+- Windows (named-pipe transport; requires `pywin32`)
+- Cheat Engine (7.5+ recommended) with **Settings → Extra → "Query memory region routines" disabled** (hard requirement for DBVM scans — see below)
+- Python 3.10+ with the bridge dependencies:
+
+```bash
+pip install -r MCP_Server/requirements.txt
+```
+
+### Install
+
+From the repository checkout:
+
+```bash
+dsh plugin --profile <name> add ./DSH-cheatengine-mcp-bridge
+```
+
+This creates/updates the profile, links the bundle, and appends its patch layer (bundle + patch are picked up automatically; there is no build step).
+
+### 1. Load the Bridge in Cheat Engine
+
+Same as any MCP client — in Cheat Engine: `File → Execute Script` → open `MCP_Server/ce_mcp_bridge.lua` → Execute (or `Table → Show Cheat Table Lua Script` + `dofile`). Success log:
+
+```
+[MCP v12.0.0] MCP Server Listening on: CE_MCP_Bridge_v99
+```
+
+### 2. Attach a Target Process
+
+Use `mcp__cheatengine__open_process` (or the `get_process_list` tool) to attach the process you want to inspect. Most tools return `{success: false, error_code: "NO_PROCESS"}` until a process is attached.
+
+### 3. Verify
+
+Check the composed configuration:
+
+```bash
+dsh --profile <name> --dump-config
+```
+
+You should see the bundle's layer at the bottom:
+
+```yaml
+# == dsh-cheatengine-mcp-bridge
+- id: ce-bridge-paths
+  name: dsh-cheatengine-mcp-bridge
+- id: mcp-cheatengine
+  name: '@deepseek-ai/dsh-mcp-client'
+  inject: [ceBridgePaths]
+```
+
+The Python server is spawned on profile start; the DSH log shows `[MCP CE] Starting FastMCP server (v12/v99 compatible)...` followed by MCP `ListToolsRequest` discovery. If the server is not reachable (e.g. missing Python deps), the mcp-client row keeps retrying with backoff and the profile still boots (`failOnStartupError` defaults to `false`).
+
+### Configuration Overrides
+
+Patch rows are replaced whole by later layers, so to customize, restate the full row in your profile's `cordis.patch.yml` (or a `--patch` overlay) under the same id:
+
+```yaml
+# ~/.dsh/cordis.patch.yml (or a --patch overlay)
+- update:
+    - id: mcp-cheatengine
+      config:
+        transport: stdio
+        serverName: !!js ctx.ceBridgePaths.serverName
+        command: !!js ctx.ceBridgePaths.pythonCommand
+        args:
+          - !!js ctx.ceBridgePaths.serverScript
+        env:
+          CE_MCP_TRANSPORT: 'pipe'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: true
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+```
+
+- **Python interpreter**: set the `CE_MCP_PYTHON` environment variable before starting DSH, or override `command` in the row.
+- **TCP relay mode**: start the relay on the Windows host (`python MCP_Server/ce_tcp_relay.py --host 127.0.0.1 --port 9876`), then set `CE_MCP_TRANSPORT: tcp`, `CE_MCP_HOST` and `CE_MCP_PORT` in the row's `env`. Use this when DSH cannot open the named pipe directly (WSL, container, remote host). Keep the relay bound to trusted interfaces only.
+- **Timeout**: `toolCallTimeoutMs` bounds each tool call; `CE_MCP_TIMEOUT` (server env, default 30 s) bounds each Cheat Engine command.
+- **Shell tools**: `run_command` / `shell_execute` stay disabled unless the server starts with `CE_MCP_ALLOW_SHELL=1`.
+
+### Uninstall
+
+```bash
+dsh plugin --profile <name> remove dsh-cheatengine-mcp-bridge
+```
+
+### Safety Notes
+
+The bridge is a high-privilege, active toolset: it can read/write arbitrary target memory, inject DLLs, execute code, and drive input/GUI. Use it only on processes you own, and keep the TCP relay (if used) on loopback/trusted interfaces — anyone who can reach it controls Cheat Engine.
+
+---
+
 ## Quick Start
 
 ### 1. Load Bridge in Cheat Engine
