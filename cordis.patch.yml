@@ -1,0 +1,46 @@
+# dsh-cheatengine-mcp-bridge bundle patch.
+#
+# This layer is applied automatically when the bundle is installed into a dsh
+# profile (dsh plugin --profile <name> add ./DSH-cheatengine-mcp-bridge).
+#
+# It wires the bundled Python MCP server (MCP_Server/mcp_cheatengine.py) to the
+# built-in MCP client bridge (@deepseek-ai/dsh-mcp-client). Every Cheat Engine
+# capability becomes a native DSH tool under the namespace
+# mcp__cheatengine__<tool> (e.g. mcp__cheatengine__read_memory).
+#
+# Requirements before use:
+#   1. pip install -r MCP_Server/requirements.txt  (mcp + pywin32)
+#   2. Load MCP_Server/ce_mcp_bridge.lua inside Cheat Engine and attach a
+#      target process (see README.md "Quick Start").
+#
+# Override defaults in your profile's own cordis.patch.yml by id
+# (mcp-cheatengine) — remember a patch replaces the whole config of a row.
+
+- insert:
+    # Resolves the bundled Python server path at load time; exposes
+    # ctx.ceBridgePaths for the row below.
+    - id: ce-bridge-paths
+      name: 'dsh-cheatengine-mcp-bridge'
+
+    # Spawns MCP_Server/mcp_cheatengine.py over stdio and registers its tools.
+    - id: mcp-cheatengine
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject:
+        - ceBridgePaths
+      config:
+        transport: stdio
+        serverName: !!js ctx.ceBridgePaths.serverName
+        command: !!js ctx.ceBridgePaths.pythonCommand
+        args:
+          - !!js ctx.ceBridgePaths.serverScript
+        env:
+          # Named-pipe transport (default): the Python server talks to the Lua
+          # bridge inside Cheat Engine through \\.\pipe\CE_MCP_Bridge_v99.
+          CE_MCP_TRANSPORT: 'pipe'
+        toolCallTimeoutMs: 60000
+        failOnStartupError: false
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10

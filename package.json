@@ -1,0 +1,32 @@
+{
+  "name": "dsh-cheatengine-mcp-bridge",
+  "version": "12.0.0",
+  "description": "Cheat Engine MCP Bridge as a DeepSeek Harness plugin bundle: drives Cheat Engine (memory scan, pointer chains, AOB, injection, kernel/DBVM) from any DSH agent.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "MCP_Server",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "bundle",
+    "mcp",
+    "cheat-engine"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
