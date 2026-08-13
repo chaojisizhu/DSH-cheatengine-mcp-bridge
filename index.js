@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const moduleDir = dirname(fileURLToPath(import.meta.url))
-const packageRoot = join(moduleDir, '..')
+const packageRoot = moduleDir // index.js lives at the repository root
 
 export const name = 'ce-bridge-paths'
 
