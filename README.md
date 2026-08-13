@@ -2,6 +2,8 @@
 
 # Cheat Engine MCP Bridge
 
+**English** | [简体中文](README.zh.md)
+
 **Let multibillion $ AI datacenters analyze the program memory for you.**
 
 Create mods, trainers, security audits, game bots, accelerate RE, or do anything else with any program and game in a fraction of a time.
